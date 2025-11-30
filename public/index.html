@@ -1,19 +1,10 @@
----
-import "../../src/styles/globals.css";
-
-interface Props {
-  title: string;
-}
-
-const { title } = Astro.props;
----
-
- 
+<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title}</title>
+    <title>AI Image Captioner</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Telegram Web App SDK -->
@@ -26,6 +17,7 @@ const { title } = Astro.props;
             font-family: 'Inter', sans-serif;
             transition: background-color 0.3s;
         }
+
         /* Custom styling for the file input to make it look nicer */
         .custom-file-input {
             cursor: pointer;
@@ -39,17 +31,21 @@ const { title } = Astro.props;
             border: 2px solid transparent;
             transition: all 0.2s ease;
         }
+
         .custom-file-input:hover {
             opacity: 0.9;
         }
+
         /* Hide the default file input */
         .hidden-file-input {
             display: none;
         }
+
         /* Style for the native Telegram Main Button (controlled by JS) */
         /* The button itself is outside this HTML, but the theme controls its color */
     </style>
 </head>
+
 <body class="p-4 flex flex-col min-h-screen">
 
     <!-- Global Firebase Vars (Required for Canvas Environment) -->
@@ -62,24 +58,29 @@ const { title } = Astro.props;
     <div id="app" class="flex flex-col flex-grow max-w-lg mx-auto w-full">
         <header class="text-center mb-6">
             <h1 class="text-2xl font-bold" style="color:var(--tg-theme-text-color)">AI Image Generator</h1>
-            <p class="text-sm opacity-75" style="color:var(--tg-theme-hint-color)">Upload an image and get a descriptive caption from the AI.</p>
+            <p class="text-sm opacity-75" style="color:var(--tg-theme-hint-color)">Upload an image and get a descriptive
+                caption from the AI.</p>
         </header>
 
         <!-- Form Area -->
         <div class="bg-white/10 p-6 rounded-xl shadow-lg flex-grow">
             <!-- Image Upload Input -->
             <label class="block mb-6">
-                <span class="text-sm font-medium" style="color:var(--tg-theme-text-color)">1. Select Image (Required)</span>
-                <input type="file" id="imageFile" accept="image/*" class="hidden-file-input" onchange="displayFileName(this)">
+                <span class="text-sm font-medium" style="color:var(--tg-theme-text-color)">1. Select Image
+                    (Required)</span>
+                <input type="file" id="imageFile" accept="image/*" class="hidden-file-input"
+                    onchange="displayFileName(this)">
                 <div class="mt-2 custom-file-input shadow-md" onclick="document.getElementById('imageFile').click()">
                     Choose Photo
                 </div>
-                <p id="fileNameDisplay" class="mt-2 text-xs" style="color:var(--tg-theme-hint-color)">No file selected.</p>
+                <p id="fileNameDisplay" class="mt-2 text-xs" style="color:var(--tg-theme-hint-color)">No file selected.
+                </p>
             </label>
 
             <!-- Optional Text Prompt -->
             <label class="block mb-6">
-                <span class="text-sm font-medium" style="color:var(--tg-theme-text-color)">2. Optional Prompt / Instruction</span>
+                <span class="text-sm font-medium" style="color:var(--tg-theme-text-color)">2. Optional Prompt /
+                    Instruction</span>
                 <textarea id="userPrompt" rows="3" placeholder="e.g., Describe this image in a whimsical, 1920s style."
                     class="mt-1 block w-full rounded-lg border-none p-3 shadow-inner resize-none text-sm"
                     style="background-color:var(--tg-theme-secondary-bg-color); color:var(--tg-theme-text-color);"></textarea>
@@ -87,11 +88,11 @@ const { title } = Astro.props;
 
             <!-- Status and Result Display -->
             <div id="statusMessage" class="mt-4 p-3 rounded-lg text-sm text-center font-semibold hidden"
-                 style="background-color:var(--tg-theme-secondary-bg-color); color:var(--tg-theme-text-color)">
+                style="background-color:var(--tg-theme-secondary-bg-color); color:var(--tg-theme-text-color)">
                 Waiting for input...
             </div>
             <div id="resultCard" class="mt-6 p-4 rounded-xl shadow-inner border"
-                 style="background-color:var(--tg-theme-secondary-bg-color); border-color:var(--tg-theme-link-color, #2481cc); display: none;">
+                style="background-color:var(--tg-theme-secondary-bg-color); border-color:var(--tg-theme-link-color, #2481cc); display: none;">
                 <h3 class="font-bold mb-2 text-sm" style="color:var(--tg-theme-link-color)">AI Caption:</h3>
                 <p id="aiResultText" class="text-sm" style="color:var(--tg-theme-text-color)"></p>
             </div>
@@ -310,3 +311,13 @@ const { title } = Astro.props;
                     handleSubmit(); // Still try the API call
                 };
                 document.getElementById('app').appendChild(fallbackButton);
+                showStatus('WARNING: Not running in Telegram Web App environment.', 'error');
+            }
+        }
+
+        window.onload = initApp;
+
+    </script>
+</body>
+
+</html>
