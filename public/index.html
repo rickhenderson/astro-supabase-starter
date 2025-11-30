@@ -8,7 +8,7 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Telegram Web App SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js?59"></script>
     <style>
         /* Base styles for the Mini App, adapting to Telegram's background */
         body {
@@ -48,18 +48,13 @@
 
 <body class="p-4 flex flex-col min-h-screen">
 
-    <!-- Global Firebase Vars (Required for Canvas Environment) -->
-    <script>
-        const __app_id = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const __firebase_config = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        const __initial_auth_token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-    </script>
-
     <div id="app" class="flex flex-col flex-grow max-w-lg mx-auto w-full">
         <header class="text-center mb-6">
             <h1 class="text-2xl font-bold" style="color:var(--tg-theme-text-color)">AI Image Generator</h1>
             <p class="text-sm opacity-75" style="color:var(--tg-theme-hint-color)">Upload an image and get a descriptive
                 caption from the AI.</p>
+            <p class="text-sm opacity-75" style="color:var(--tg-theme-hint-color)">Currently not functioning. Under
+                development.</p>
         </header>
 
         <!-- Form Area -->
