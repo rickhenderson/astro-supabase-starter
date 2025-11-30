@@ -10,18 +10,305 @@ interface Props {
 const { title } = Astro.props;
 ---
 
-<!doctype html>
+ 
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title}</title>
-  </head>
-  <body class="px-4 antialiased bg-neutral-800 sm:px-8 text-white">
-    <Header />
-    <main class="w-full max-w-4xl mx-auto grow">
-      <slot />
-    </main>
-    <Footer />
-  </body>
-</html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Captioner</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* Base styles for the Mini App, adapting to Telegram's background */
+        body {
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s;
+        }
+        /* Custom styling for the file input to make it look nicer */
+        .custom-file-input {
+            cursor: pointer;
+            display: inline-block;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            background-color: var(--tg-theme-button-color, #50a0f0);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            font-weight: 600;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .custom-file-input:hover {
+            opacity: 0.9;
+        }
+        /* Hide the default file input */
+        .hidden-file-input {
+            display: none;
+        }
+        /* Style for the native Telegram Main Button (controlled by JS) */
+        /* The button itself is outside this HTML, but the theme controls its color */
+    </style>
+</head>
+<body class="p-4 flex flex-col min-h-screen">
+
+    <!-- Global Firebase Vars (Required for Canvas Environment) -->
+    <script>
+        const __app_id = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const __firebase_config = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        const __initial_auth_token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    </script>
+
+    <div id="app" class="flex flex-col flex-grow max-w-lg mx-auto w-full">
+        <header class="text-center mb-6">
+            <h1 class="text-2xl font-bold" style="color:var(--tg-theme-text-color)">AI Image Generator</h1>
+            <p class="text-sm opacity-75" style="color:var(--tg-theme-hint-color)">Upload an image and get a descriptive caption from the AI.</p>
+        </header>
+
+        <!-- Form Area -->
+        <div class="bg-white/10 p-6 rounded-xl shadow-lg flex-grow">
+            <!-- Image Upload Input -->
+            <label class="block mb-6">
+                <span class="text-sm font-medium" style="color:var(--tg-theme-text-color)">1. Select Image (Required)</span>
+                <input type="file" id="imageFile" accept="image/*" class="hidden-file-input" onchange="displayFileName(this)">
+                <div class="mt-2 custom-file-input shadow-md" onclick="document.getElementById('imageFile').click()">
+                    Choose Photo
+                </div>
+                <p id="fileNameDisplay" class="mt-2 text-xs" style="color:var(--tg-theme-hint-color)">No file selected.</p>
+            </label>
+
+            <!-- Optional Text Prompt -->
+            <label class="block mb-6">
+                <span class="text-sm font-medium" style="color:var(--tg-theme-text-color)">2. Optional Prompt / Instruction</span>
+                <textarea id="userPrompt" rows="3" placeholder="e.g., Describe this image in a whimsical, 1920s style."
+                    class="mt-1 block w-full rounded-lg border-none p-3 shadow-inner resize-none text-sm"
+                    style="background-color:var(--tg-theme-secondary-bg-color); color:var(--tg-theme-text-color);"></textarea>
+            </label>
+
+            <!-- Status and Result Display -->
+            <div id="statusMessage" class="mt-4 p-3 rounded-lg text-sm text-center font-semibold hidden"
+                 style="background-color:var(--tg-theme-secondary-bg-color); color:var(--tg-theme-text-color)">
+                Waiting for input...
+            </div>
+            <div id="resultCard" class="mt-6 p-4 rounded-xl shadow-inner border"
+                 style="background-color:var(--tg-theme-secondary-bg-color); border-color:var(--tg-theme-link-color, #2481cc); display: none;">
+                <h3 class="font-bold mb-2 text-sm" style="color:var(--tg-theme-link-color)">AI Caption:</h3>
+                <p id="aiResultText" class="text-sm" style="color:var(--tg-theme-text-color)"></p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script type="module">
+        // Placeholder for your n8n Webhook URL.
+        // Replace this with the actual URL from your n8n workflow's Webhook node.
+        const N8N_WEBHOOK_URL = 'https://your-n8n-instance.com/webhook/your-endpoint-id';
+
+        let WebApp;
+        let imageBase64 = null;
+
+        // --- Utility Functions ---
+
+        /**
+         * Converts a File object to a Base64 string.
+         * @param {File} file - The file to convert.
+         * @returns {Promise<string>} - A promise that resolves with the Base64 string.
+         */
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        /**
+         * Displays the selected file name in the UI.
+         */
+        function displayFileName(input) {
+            const display = document.getElementById('fileNameDisplay');
+            if (input.files.length > 0) {
+                display.textContent = `Selected: ${input.files[0].name}`;
+                WebApp.MainButton.show();
+                // Store the file's Base64 representation immediately upon selection
+                fileToBase64(input.files[0]).then(base64 => {
+                    imageBase64 = base64;
+                    updateMainButtonState();
+                }).catch(err => {
+                    console.error("Error converting file to Base64:", err);
+                    showStatus('Error reading file.', 'error');
+                });
+            } else {
+                display.textContent = 'No file selected.';
+                imageBase64 = null;
+                updateMainButtonState();
+            }
+        }
+
+        // Expose the function globally so it can be called from the HTML inline event
+        window.displayFileName = displayFileName;
+
+
+        /**
+         * Updates the Telegram Main Button's appearance and enabled state.
+         */
+        function updateMainButtonState(loading = false, error = false) {
+            if (!WebApp || !WebApp.MainButton) return;
+
+            const hasFile = document.getElementById('imageFile').files.length > 0;
+
+            if (loading) {
+                WebApp.MainButton.setText('PROCESSING IMAGE...');
+                WebApp.MainButton.disable();
+                WebApp.MainButton.showProgress(true);
+            } else if (error) {
+                WebApp.MainButton.setText('ERROR - Retake Photo');
+                WebApp.MainButton.enable();
+                WebApp.MainButton.hideProgress();
+            } else if (hasFile) {
+                WebApp.MainButton.setText('GENERATE CAPTION');
+                WebApp.MainButton.enable();
+                WebApp.MainButton.hideProgress();
+            } else {
+                WebApp.MainButton.setText('SELECT AN IMAGE TO CONTINUE');
+                WebApp.MainButton.disable();
+                WebApp.MainButton.hideProgress();
+            }
+        }
+
+        /**
+         * Shows a status message in the UI.
+         */
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('statusMessage');
+            status.textContent = message;
+            status.classList.remove('hidden', 'bg-red-200', 'bg-green-200');
+            status.classList.add('block');
+
+            if (type === 'error') {
+                status.style.backgroundColor = 'var(--tg-theme-destructive-text-color, #ff0000)';
+                status.style.color = 'var(--tg-theme-button-text-color, #ffffff)';
+            } else {
+                status.style.backgroundColor = 'var(--tg-theme-secondary-bg-color)';
+                status.style.color = 'var(--tg-theme-text-color)';
+            }
+        }
+
+        /**
+         * Clears the result card.
+         */
+        function clearResult() {
+            document.getElementById('resultCard').style.display = 'none';
+            document.getElementById('aiResultText').textContent = '';
+        }
+
+        /**
+         * The main submission handler for the Telegram Main Button.
+         */
+        async function handleSubmit() {
+            clearResult();
+            const fileInput = document.getElementById('imageFile');
+            const userPrompt = document.getElementById('userPrompt').value.trim();
+
+            if (!fileInput.files.length) {
+                showStatus('Please select an image first.', 'error');
+                WebApp.HapticFeedback.notificationOccurred('error');
+                return;
+            }
+
+            if (N8N_WEBHOOK_URL.includes('your-endpoint-id')) {
+                showStatus('ERROR: Please update the N8N_WEBHOOK_URL in the code.', 'error');
+                WebApp.HapticFeedback.notificationOccurred('error');
+                return;
+            }
+
+            // 1. Prepare UI for submission
+            updateMainButtonState(true);
+            showStatus('Sending data to AI...', 'info');
+            WebApp.HapticFeedback.impactOccurred('light');
+
+            try {
+                // The Base64 string will look like 'data:image/jpeg;base64,...'
+                // We send the entire string for easy processing in n8n.
+                const requestBody = {
+                    // Telegram initialization data is used by n8n to verify the user identity
+                    initData: WebApp.initData,
+                    prompt: userPrompt,
+                    imageBase64: imageBase64,
+                };
+
+                // 2. Send data to n8n webhook
+                const response = await fetch(N8N_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const aiCaption = data.caption || data.message || "The AI returned an unexpected response. Check your n8n workflow logs.";
+
+                // 3. Display Result
+                document.getElementById('aiResultText').textContent = aiCaption;
+                document.getElementById('resultCard').style.display = 'block';
+                showStatus('Caption successfully generated!', 'success');
+                WebApp.HapticFeedback.notificationOccurred('success');
+
+            } catch (error) {
+                console.error("Submission Error:", error);
+                showStatus(`Submission failed: ${error.message}. Check console for details.`, 'error');
+                WebApp.HapticFeedback.notificationOccurred('error');
+            } finally {
+                // 4. Reset UI state
+                updateMainButtonState(false);
+            }
+        }
+
+        // --- Initialization ---
+
+        function initApp() {
+            // Check if Telegram WebApp is ready
+            if (window.Telegram && window.Telegram.WebApp) {
+                WebApp = window.Telegram.WebApp;
+                WebApp.ready();
+
+                // 1. Set the background color to match Telegram's theme
+                document.body.style.backgroundColor = WebApp.themeParams.bg_color;
+
+                // 2. Initialize the Main Button (Best UX for Mini Apps)
+                WebApp.MainButton.setParams({
+                    text_color: WebApp.themeParams.button_text_color,
+                    color: WebApp.themeParams.button_color,
+                    is_visible: true,
+                });
+
+                // 3. Attach the click listener to the native Telegram button
+                WebApp.MainButton.onClick(handleSubmit);
+
+                // 4. Initial button state (disabled until an image is selected)
+                updateMainButtonState();
+
+                // 5. Tell the user what's happening
+                showStatus('Select an image and press the button below.');
+
+                // Optional: Expand the Mini App to full screen
+                WebApp.expand();
+
+            } else {
+                console.error("Telegram WebApp SDK not found or not ready.");
+                // Fallback UI if not running in Telegram
+                const fallbackButton = document.createElement('button');
+                fallbackButton.textContent = "Submit (Not in Telegram)";
+                fallbackButton.className = "w-full p-3 mt-4 rounded-xl bg-blue-500 text-white font-bold shadow-lg";
+                fallbackButton.onclick = () => {
+                    alert("This application must be launched inside Telegram for full functionality.");
+                    handleSubmit(); // Still try the API call
+                };
+                document.getElementById('app').appendChild(fallbackButton);
