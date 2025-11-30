@@ -98,7 +98,7 @@
     <!-- JavaScript Logic -->
     <script type="module">
         // Placeholder for your n8n Webhook URL.
-        // Replace this with the actual URL from your n8n workflow's Webhook node.
+        // Replace this with the actual URL from your n8n workflow's Webhook node. Use the prod URL unless testing.
         const N8N_WEBHOOK_URL = 'https://siliconhearts.app.n8n.cloud/webhook/c9525cef-ebf7-40a1-858c-336f3a88f319';
 
         let WebApp;
@@ -215,7 +215,7 @@
             }
 
             if (N8N_WEBHOOK_URL.includes('your-endpoint-id')) {
-                showStatus('ERROR: Please update the N8N_WEBHOOK_URL in the code.', 'error');
+                showStatus('ERROR: Please update the N8N_WEBHOOK_URL in the code. It\'s using the default value, or your test URL.', 'error');
                 WebApp.HapticFeedback.notificationOccurred('error');
                 return;
             }
